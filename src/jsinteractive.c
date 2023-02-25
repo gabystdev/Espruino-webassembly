@@ -252,7 +252,7 @@ NO_INLINE void jsiConsolePrintString_int(const char *str) {
 void jsiConsolePrintf(const char *fmt, ...) {
   va_list argp;
   va_start(argp, fmt);
-  vcbprintf((vcbprintf_callback)jsiConsolePrint,0, fmt, argp);
+  vcbprintf(vcbprintf_callback_jsiConsolePrintString, 0, fmt, argp);
   va_end(argp);
 }
 #else
