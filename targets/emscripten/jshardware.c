@@ -33,6 +33,13 @@
 #define FAKE_FLASH_BLOCKSIZE 4096
 // ----------------------------------------------------------------------------
 
+extern void jsHandleIO();
+extern uint8_t hwFlashRead(uint32_t);
+extern void hwFlashWritePtr(uint32_t, uint8_t *, uint32_t);
+extern bool hwGetPinValue(Pin);
+extern void hwSetPinValue(Pin, bool);
+extern JsVarFloat nowMillis();
+
 Pin eventFlagsToPin[16];
 int timeToSleep = -1;
 bool firstIdle = true;
@@ -60,7 +67,7 @@ void jshIdle() {
 
 void jshBusyIdle() {
 #ifdef EMSCRIPTEN
-  EM_ASM_({ jsHandleIO(); });
+  jsHandleIO();
   return;
 #endif
 }
@@ -100,11 +107,11 @@ JshPinState jshPinGetState(Pin pin) {
 
 void jshPinSetValue(Pin pin, bool value) {
   if (pinInfo[pin].port & JSH_PIN_NEGATED) value=!value;
-  EM_ASM_({ hwSetPinValue($0,$1) }, pin, value);
+  hwSetPinValue(pin, value);
 }
 
 bool jshPinGetValue(Pin pin) {
-  bool value = EM_ASM_INT({ return hwGetPinValue($0) }, pin);
+  bool value = hwGetPinValue(pin);
   if (pinInfo[pin].port & JSH_PIN_NEGATED) value=!value;
   return value;
 }
@@ -124,9 +131,7 @@ JsVarFloat jshGetMillisecondsFromTime(JsSysTime time) {
 }
 
 JsSysTime jshGetSystemTime() {
-  return jshGetTimeFromMilliseconds(EM_ASM_DOUBLE({
-    return Date.now();
-  }));
+  return jshGetTimeFromMilliseconds(nowMillis());
 }
 
 void jshSetSystemTime(JsSysTime time) {
@@ -274,7 +279,7 @@ void jshFlashErasePage(uint32_t addr) {
   if (jshFlashGetPage(addr, &startAddr, &pageSize)) {
     char ff[FAKE_FLASH_BLOCKSIZE];
     memset(ff,0xFF,FAKE_FLASH_BLOCKSIZE);
-    EM_ASM_({ hwFlashWritePtr($0,$1,$2); }, startAddr-FLASH_START, ff, pageSize );
+    hwFlashWritePtr(startAddr-FLASH_START, ff, pageSize);
   }
 #endif
 }
@@ -282,13 +287,13 @@ void jshFlashRead(void *buf, uint32_t addr, uint32_t len) {
   if (addr<FLASH_START) return;
 #ifdef EMSCRIPTEN
   for (uint32_t i=0;i<len;i++)
-    ((uint8_t*)buf)[i] = EM_ASM_INT({ return hwFlashRead($0) }, addr+i-FLASH_START);
+    ((uint8_t*)buf)[i] = hwFlashRead(addr+i-FLASH_START);
 #endif
 }
 void jshFlashWrite(void *buf, uint32_t addr, uint32_t len) {
   if (addr<FLASH_START) return;
 #ifdef EMSCRIPTEN
-  EM_ASM_({ hwFlashWritePtr($0,$1,$2); }, addr-FLASH_START, (uint8_t*)buf, len);
+  hwFlashWritePtr(addr-FLASH_START, (uint8_t*)buf, len);
 #endif
 }
 
