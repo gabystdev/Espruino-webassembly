@@ -965,6 +965,14 @@ typedef enum {
 } JsBangleTasks;
 JsBangleTasks bangleTasks;
 
+#ifdef EMULATED
+extern bool hostIsReset();
+extern void hostClearReset();
+#else
+bool hostIsReset() { return false; }
+void hostClearReset() {}
+#endif
+
 static void jswrap_banglejs_setLCDPowerBacklight(bool isOn);
 
 void jswrap_banglejs_pwrGPS(bool on) {
@@ -3892,6 +3900,11 @@ bool jswrap_banglejs_idle() {
     bangleFlags &= ~JSBF_HRM_INSTANT_LISTENER;
 #endif
 
+  if (hostIsReset()) {
+    jsWarn("got host reset!");
+    bangleTasks |= JSBT_RESET;
+  }
+
   if (!bangle) {
     bangleTasks = JSBT_NONE;
   }
@@ -4203,6 +4216,7 @@ bool jswrap_banglejs_idle() {
 #endif
   jsvUnLock(bangle);
   bangleTasks = JSBT_NONE;
+  hostClearReset();
 #if defined(LCD_CONTROLLER_LPM013M126) || defined(LCD_CONTROLLER_ST7789V) || defined(LCD_CONTROLLER_ST7735) || defined(LCD_CONTROLLER_GC9A01)
   // Automatically flip!
   if (graphicsInternal.data.modMaxX >= graphicsInternal.data.modMinX) {

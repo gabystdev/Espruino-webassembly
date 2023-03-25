@@ -31,6 +31,14 @@
  * for each call */
 JsExecInfo execInfo;
 
+#ifdef EMULATED
+extern bool hostIsInterrupted();
+extern void hostClearInterrupted();
+#else
+bool hostIsInterrupted() { return false; }
+void hostClearInterrupted() {}
+#endif
+
 // ----------------------------------------------- Forward decls
 JsVar *jspeAssignmentExpression();
 JsVar *jspeExpression();
@@ -50,8 +58,8 @@ JsVar *jspeArrowFunction(JsVar *funcVar, JsVar *a);
 #define JSP_ASSERT_MATCH(TOKEN) { assert(0+lex->tk==(TOKEN));jslGetNextToken(); } // Match where if we have the wrong token, it's an internal error
 #define JSP_SAVE_EXECUTE() JsExecFlags oldExecute = execInfo.execute
 #define JSP_RESTORE_EXECUTE() execInfo.execute = (execInfo.execute&(JsExecFlags)(~EXEC_SAVE_RESTORE_MASK)) | (oldExecute&EXEC_SAVE_RESTORE_MASK);
-#define JSP_HAS_ERROR (((execInfo.execute)&EXEC_ERROR_MASK)!=0)
-#define JSP_SHOULDNT_PARSE (((execInfo.execute)&EXEC_NO_PARSE_MASK)!=0)
+#define JSP_HAS_ERROR (hostIsInterrupted() || ((execInfo.execute)&EXEC_ERROR_MASK)!=0)
+#define JSP_SHOULDNT_PARSE (hostIsInterrupted() || ((execInfo.execute)&EXEC_NO_PARSE_MASK)!=0)
 
 ALWAYS_INLINE void jspDebuggerLoopIfCtrlC() {
 #ifdef USE_DEBUGGER
@@ -62,15 +70,17 @@ ALWAYS_INLINE void jspDebuggerLoopIfCtrlC() {
 
 /// if interrupting execution, this is set
 bool jspIsInterrupted() {
-  return (execInfo.execute & EXEC_INTERRUPTED)!=0;
+  return hostIsInterrupted() || (execInfo.execute & EXEC_INTERRUPTED)!=0;
 }
 
 /// if interrupting execution, this is set
 void jspSetInterrupted(bool interrupt) {
   if (interrupt)
     execInfo.execute = execInfo.execute | EXEC_INTERRUPTED;
-  else
+  else {
+    hostClearInterrupted();
     execInfo.execute = execInfo.execute & (JsExecFlags)~EXEC_INTERRUPTED;
+  }
 }
 
 /// Set the error flag - set lineReported if we've already output the line number
